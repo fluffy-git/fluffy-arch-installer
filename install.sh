@@ -12,8 +12,8 @@ echo ""
 read -p "Enter your timezone (e.g., Europe/Berlin): " timezone
 
 # Prompt user for locale
-echo "Available locales:"
-cat /etc/locale.gen | grep -v '^#' | less
+#echo "Available locales:"
+#cat /etc/locale.gen | grep -v '^#' | less
 echo ""
 read -p "Enter the locales you want to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8): " locales
 
