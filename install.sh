@@ -10,6 +10,7 @@ read -p "Hostname: " hostname
 
 # Ask for disk
 echo ""
+fdisk -l
 echo "On which disk should the installation take place? "
 read -p "Disk (e.g., /dev/sda): " disk
 
