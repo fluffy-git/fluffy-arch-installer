@@ -3,48 +3,84 @@
 # Exit on errors
 set -e
 
-# Welcome message
-echo "Welcome to the customized Arch Linux installation script!"
-echo "This script will guide you through a highly customizable Arch Linux installation."
-echo ""
+# Color formatting
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
+RESET=$(tput sgr0)
 
-# Prompt user for hostname
-read -p "Enter the hostname for your system (e.g., archlinux): " hostname
+# Function for input validation
+validate_input() {
+    local input="$1"
+    if [[ -z "$input" ]]; then
+        echo "${RED}Error: Input cannot be empty.${RESET}"
+        return 1
+    fi
+    return 0
+}
+
+# Function for validated prompt
+prompt_input() {
+    local prompt_message="$1"
+    local input
+    while true; do
+        read -p "${BOLD}${prompt_message}${RESET} " input
+        if validate_input "$input"; then
+            echo "$input"
+            break
+        fi
+    done
+}
+
+clear
+
+# Welcome message
+echo "${CYAN}Welcome to the customized Arch Linux installation script!${RESET}"
+echo "${BOLD}This script will guide you through a highly customizable Arch Linux installation.${RESET}"
+echo ""
 
 # Prompt user for timezone
-read -p "Enter your timezone (e.g., Europe/Berlin): " timezone
+clear
+timezone=$(prompt_input "Enter your timezone (e.g., Europe/Berlin):")
 
-# Prompt user for locales
-echo ""
-echo "Enter the locales you want to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8):"
-read -p "> " locales
+# Prompt user for locale
+clear
+echo "${BOLD}Enter the locales you want to enable.${RESET}"
+echo "${GREEN}Example: en_US de_DE${RESET}"
+echo "The script will automatically append UTF-8."
+locale_input=$(prompt_input "Enter locales (space-separated):")
+IFS=' ' read -r -a locale_array <<< "$locale_input"
 
 # Prompt user for keyboard layout
-read -p "Enter your keyboard layout (e.g., us, de, fr): " keylayout
+clear
+keylayout=$(prompt_input "Enter your keyboard layout (e.g., us, de, fr):")
 loadkeys "$keylayout"
 
 # Prompt user for root password and user account
-read -s -p "Enter the root password: " root_password
-echo ""
-read -p "Enter the username for the new user account: " username
-read -s -p "Enter the password for the $username account: " user_password
-echo ""
+clear
+root_password=$(prompt_input "Enter the root password (input hidden):" -s)
+username=$(prompt_input "Enter the username for the new user account:")
+user_password=$(prompt_input "Enter the password for $username (input hidden):" -s)
 
 # Disk setup
+clear
 lsblk
-echo ""
-echo "Available disks:"
+echo "${BOLD}Available disks:${RESET}"
 fdisk -l
-echo ""
-read -p "Enter the disk to partition (e.g., /dev/sda): " disk
+disk=$(prompt_input "Enter the disk to partition (e.g., /dev/sda):")
 cfdisk "$disk"
 
 # Prompt user for partitions
-read -p "Enter the partition number for EFI system partition (e.g., 1): " efi_part
-read -p "Enter the partition number for BTRFS partition (e.g., 2): " btrfs_part
-read -p "Did you create a swap partition? (yes/no): " created_swap
+efi_part=$(prompt_input "Enter the partition number for EFI system partition (e.g., 1):")
+btrfs_part=$(prompt_input "Enter the partition number for BTRFS partition (e.g., 2):")
+echo "Did you create a swap partition? (yes/no):"
+read created_swap
 if [[ "$created_swap" == "yes" ]]; then
-    read -p "Enter the partition number for swap (e.g., 3): " swap_part
+    swap_part=$(prompt_input "Enter the partition number for swap (e.g., 3):")
 fi
 
 # Construct partition paths
@@ -55,7 +91,8 @@ if [[ "$created_swap" == "yes" ]]; then
 fi
 
 # Format partitions and set labels
-echo "Formatting partitions..."
+clear
+echo "${YELLOW}Formatting partitions...${RESET}"
 mkfs.fat -F32 -n "EFI" "$efi_part"
 mkfs.btrfs -L "ROOT" "$btrfs_part"
 if [[ "$created_swap" == "yes" ]]; then
@@ -64,7 +101,7 @@ if [[ "$created_swap" == "yes" ]]; then
 fi
 
 # Mount BTRFS and create essential subvolumes
-echo "Mounting BTRFS partition and creating essential subvolumes..."
+echo "${YELLOW}Mounting BTRFS partition and creating essential subvolumes...${RESET}"
 mount "$btrfs_part" /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
@@ -77,26 +114,26 @@ mount -o subvol=@home "$btrfs_part" /mnt/home
 mount "$efi_part" /mnt/boot
 
 # Base package installation
+clear
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo snapper"
-echo "Base packages: $base_packages"
-read -p "Enter any additional packages to install (space-separated): " extra_packages
+echo "${BOLD}Base packages:${RESET} $base_packages"
+read -p "${BOLD}Enter any additional packages to install (space-separated):${RESET} " extra_packages
 pacstrap /mnt $base_packages $extra_packages
 
 # Generate fstab
 genfstab -U /mnt >> /mnt/etc/fstab
 
-# Copy network settings if they exist
+# Copy network settings
 if [ -d /etc/NetworkManager/system-connections ]; then
-    echo "Copying network settings..."
+    echo "${YELLOW}Copying network settings...${RESET}"
     cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/ || {
-        echo "Warning: Failed to copy network settings. Continuing without them."
+        echo "${RED}Warning: Failed to copy network settings. Continuing without them.${RESET}"
     }
 else
-    echo "No network settings found to copy. Skipping this step."
+    echo "${YELLOW}No network settings found to copy. Skipping this step.${RESET}"
 fi
 
-
-# Chroot into the new system
+# Enter chroot and configure the system
 arch-chroot /mnt /bin/bash <<EOF
 
 # Set timezone
@@ -104,11 +141,14 @@ ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
 
 # Configure locales
-echo "$locales" > /etc/locale.gen
+for locale in ${locale_array[@]}; do
+    echo "${locale}.UTF-8 UTF-8" >> /etc/locale.gen
+done
 locale-gen
-echo "LANG=$(echo $locales | cut -d' ' -f1)" > /etc/locale.conf
+echo "LANG=${locale_array[0]}.UTF-8" > /etc/locale.conf
 
 # Set hostname
+hostname=$(prompt_input "Enter the hostname for this system:")
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
@@ -131,29 +171,10 @@ systemctl enable NetworkManager sshd
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# Install yay and additional tools
+pacman -S --noconfirm yay snap-pac grub-btrfs
 EOF
-
-# Install yay, snapper, snap-pac, and grub-btrfs
-arch-chroot /mnt /bin/bash <<EOF
-echo "Installing yay..."
-sudo pacman -S --needed base-devel git --noconfirm
-git clone https://aur.archlinux.org/yay.git /tmp/yay
-cd /tmp/yay
-makepkg -si --noconfirm
-
-echo "Installing snapper, snap-pac, and grub-btrfs..."
-sudo pacman -S snapper snap-pac grub-btrfs --noconfirm
-EOF
-
-# Mount Windows partition for GRUB detection (optional)
-read -p "Do you want to mount a Windows partition for GRUB detection? (yes/no): " mount_windows
-if [[ "$mount_windows" == "yes" ]]; then
-    lsblk
-    read -p "Enter the Windows partition (e.g., /dev/sda1): " windows_partition
-    mkdir -p /mnt/windows
-    mount "$windows_partition" /mnt/windows
-    echo "$windows_partition /mnt/windows auto defaults 0 0" >> /mnt/etc/fstab
-fi
 
 # Final message
-echo "Installation complete! Reboot into your new Arch Linux system."
+echo "${GREEN}Installation complete! Reboot into your new Arch Linux system.${RESET}"
