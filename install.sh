@@ -84,11 +84,12 @@ pacstrap /mnt $base_packages $extra_packages
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # Copy network settings
-echo "Copying network settings..."
-cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
+#echo "Copying network settings..."
+#cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
 
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
+
 # Set timezone
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
