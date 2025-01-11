@@ -12,8 +12,6 @@ echo ""
 read -p "Enter your timezone (e.g., Europe/Berlin): " timezone
 
 # Prompt user for locale
-#echo "Available locales:"
-#cat /etc/locale.gen | grep -v '^#' | less
 echo ""
 read -p "Enter the locales you want to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8): " locales
 
@@ -31,7 +29,7 @@ echo ""
 # Disk setup
 lsblk
 echo ""
-echo "Avalible disks:"
+echo "Available disks:"
 fdisk -l
 echo ""
 read -p "Enter the disk to partition (e.g., /dev/sda): " disk
@@ -56,7 +54,7 @@ fi
 echo "Formatting partitions..."
 mkfs.fat -F32 -n "EFI" "$efi_part"
 mkfs.btrfs -L "ROOT" "$btrfs_part"
-if [[ "$create_swap" == "yes" ]]; then
+if [[ "$created_swap" == "yes" ]]; then
     mkswap -L "SWAP" "$swap_part"
     swapon "$swap_part"
 fi
@@ -66,13 +64,24 @@ echo "Mounting BTRFS partition and creating essential subvolumes..."
 mount "$btrfs_part" /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@snapshots
 umount /mnt
 
 # Remount subvolumes
 mount -o subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot,home}
+mkdir -p /mnt/{boot,home,.snapshots}
 mount -o subvol=@home "$btrfs_part" /mnt/home
+mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
 mount "$efi_part" /mnt/boot
+
+# Optionally mount a Windows partition
+read -p "Do you want to mount a Windows partition for dual-boot setup? (yes/no): " mount_windows
+if [[ "$mount_windows" == "yes" ]]; then
+    lsblk
+    read -p "Enter the partition to mount (e.g., /dev/sda3): " windows_part
+    mkdir -p /mnt/windows
+    mount "$windows_part" /mnt/windows
+fi
 
 # Base package installation
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo snapper"
@@ -82,10 +91,6 @@ pacstrap /mnt $base_packages $extra_packages
 
 # Generate fstab
 genfstab -U /mnt >> /mnt/etc/fstab
-
-# Copy network settings
-#echo "Copying network settings..."
-#cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
 
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
@@ -122,56 +127,18 @@ systemctl enable NetworkManager sshd
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# Install and set up Snapper
+snapper --config root create-config /
+snapper --config home create-config /home
+pacman -Syu snap-pac grub-btrfs --noconfirm
+
+# Install Yay (AUR Helper)
+git clone https://aur.archlinux.org/yay.git /home/$username/yay
+chown -R $username:$username /home/$username/yay
+cd /home/$username/yay
+sudo -u $username makepkg -si --noconfirm
 EOF
-
-read -p "Do you want to enable a firewall (ufw)? (yes/no): " enable_firewall
-if [[ "$enable_firewall" == "yes" ]]; then
-    arch-chroot /mnt /bin/bash -c "pacman -Syu ufw --noconfirm && systemctl enable ufw && systemctl start ufw"
-fi
-
-arch-chroot /mnt /bin/bash <<EOF
-if lspci | grep -i nvidia; then
-    echo "NVIDIA GPU detected. Installing drivers..."
-    pacman -Syu nvidia nvidia-settings nvidia-utils --noconfirm
-elif lspci | grep -i amd; then
-    echo "AMD GPU detected. Installing drivers..."
-    pacman -Syu xf86-video-amdgpu --noconfirm
-fi
-EOF
-
-# Install Zsh if it's not already installed
-arch-chroot /mnt /bin/bash -c "pacman -Syu zsh --noconfirm"
-
-# Set Zsh as the default shell system-wide
-arch-chroot /mnt /bin/bash -c "chsh -s /bin/zsh root"
-for user in $(ls /mnt/home); do
-    arch-chroot /mnt /bin/bash -c "chsh -s /bin/zsh $user"
-done
-
-# Configure .zshrc for all users based on the provided configuration
-arch-chroot /mnt /bin/bash <<EOF
-echo "# Lines configured by zsh-newuser-install" > /etc/skel/.zshrc
-echo "HISTFILE=~/.histfile" >> /etc/skel/.zshrc
-echo "HISTSIZE=1000" >> /etc/skel/.zshrc
-echo "SAVEHIST=1000" >> /etc/skel/.zshrc
-echo "setopt autocd" >> /etc/skel/.zshrc
-echo "bindkey -e" >> /etc/skel/.zshrc
-echo "# End of lines configured by zsh-newuser-install" >> /etc/skel/.zshrc
-echo "# The following lines were added by compinstall" >> /etc/skel/.zshrc
-echo "zstyle :compinstall filename '/home/$username/.zshrc'" >> /etc/skel/.zshrc
-echo "autoload -Uz compinit" >> /etc/skel/.zshrc
-echo "compinit" >> /etc/skel/.zshrc
-echo "# End of lines added by compinstall" >> /etc/skel/.zshrc
-EOF
-
-# Ensure new users have the default .zshrc (using /etc/skel)
-arch-chroot /mnt /bin/bash -c "chmod 755 /etc/skel/.zshrc"
-
-# Optionally install Oh My Zsh for all users
-read -p "Do you want to install Oh My Zsh for all users? (yes/no): " install_omz
-if [[ "$install_omz" == "yes" ]]; then
-    arch-chroot /mnt /bin/bash -c "sh -c \"\$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" --unattended"
-fi
 
 # Final message
 echo "Installation complete! Reboot into your new Arch Linux system."
