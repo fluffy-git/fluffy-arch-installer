@@ -93,12 +93,13 @@ fi
 # Format partitions and set labels
 clear
 echo "${bold}${yellow}Formatting partitions...${normal}"
-mkfs.fat -F32 -n "EFI" "$efi_part"
-mkfs.btrfs -L -f "ROOT" "$btrfs_part"
+mkfs.fat -F32 -n "EFI" "$efi_part"         # No force option for FAT, this works directly
+mkfs.btrfs -f -L "ROOT" "$btrfs_part"      # Force flag for Btrfs
 if [[ "$created_swap" == "yes" ]]; then
-    mkswap -L "SWAP" "$swap_part"
+    mkswap -f -L "SWAP" "$swap_part"       # Force flag for swap
     swapon "$swap_part"
 fi
+
 
 # Mount BTRFS and create essential subvolumes
 clear
