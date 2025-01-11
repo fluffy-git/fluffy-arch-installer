@@ -32,16 +32,19 @@ if [[ ! -d /sys/firmware/efi/efivars ]]; then
     exit 1
 fi
 
+# Prompt user for hostname
+read -p "${bold}Enter the hostname for your system (e.g., archlinux): ${normal}" hostname
+hostname=$(validate_input "$hostname" "Enter the hostname for your system (e.g., archlinux): ")
+
 # Prompt user for timezone
-clear
 read -p "${bold}Enter your timezone (e.g., Europe/Berlin): ${normal}" timezone
 timezone=$(validate_input "$timezone" "Enter your timezone: ")
 
 # Prompt user for locales
 clear
-echo "${bold}Available locales:${normal}"
-grep -v '^#' /etc/locale.gen | less
-echo ""
+#echo "${bold}Available locales:${normal}"
+#grep -v '^#' /etc/locale.gen | less
+#echo ""
 read -p "${bold}Enter the locales to enable (space-separated, e.g., en_US de_DE): ${normal}" locales
 locales=$(validate_input "$locales" "Enter the locales to enable: ")
 
@@ -62,7 +65,7 @@ echo ""
 
 # Disk setup
 clear
-lsblk
+lsblk -e 7,11
 echo ""
 read -p "${bold}Enter the disk to partition (e.g., /dev/sda): ${normal}" disk
 disk=$(validate_input "$disk" "Enter the disk to partition: ")
@@ -90,10 +93,10 @@ fi
 # Format partitions and set labels
 clear
 echo "${bold}${yellow}Formatting partitions...${normal}"
-mkfs.fat -F32 -n "EFI" "$efi_part"
-mkfs.btrfs -L "ROOT" "$btrfs_part"
+mkfs.fat -F32 -n -f "efi" "$efi_part"
+mkfs.btrfs -L -f "$hostname" "$btrfs_part"
 if [[ "$created_swap" == "yes" ]]; then
-    mkswap -L "SWAP" "$swap_part"
+    mkswap -L -f "swap" "$swap_part"
     swapon "$swap_part"
 fi
 
