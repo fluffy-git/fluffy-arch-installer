@@ -165,10 +165,12 @@ EOF
 
 # Yay installation
 arch-chroot /mnt /bin/bash <<EOF
-pacman -S --needed base-devel git --noconfirm
+# Switch to the new user and build yay
+su - $username <<EOC
 git clone https://aur.archlinux.org/yay.git /tmp/yay
 cd /tmp/yay
 makepkg -si --noconfirm
+EOC
 EOF
 
 # Final message
