@@ -8,14 +8,18 @@ echo "Welcome to the customized Arch Linux installation script!"
 echo "This script will guide you through a highly customizable Arch Linux installation."
 echo ""
 
+# Prompt user for hostname
+read -p "Enter the hostname for your system (e.g., archlinux): " hostname
+
 # Prompt user for timezone
 read -p "Enter your timezone (e.g., Europe/Berlin): " timezone
 
-# Prompt user for locale
+# Prompt user for locales
 echo ""
-read -p "Enter the locales you want to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8): " locales
+echo "Enter the locales you want to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8):"
+read -p "> " locales
 
-# Prompt user for key layout
+# Prompt user for keyboard layout
 read -p "Enter your keyboard layout (e.g., us, de, fr): " keylayout
 loadkeys "$keylayout"
 
@@ -64,24 +68,13 @@ echo "Mounting BTRFS partition and creating essential subvolumes..."
 mount "$btrfs_part" /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@snapshots
 umount /mnt
 
 # Remount subvolumes
 mount -o subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot,home,.snapshots}
+mkdir -p /mnt/{boot,home}
 mount -o subvol=@home "$btrfs_part" /mnt/home
-mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
 mount "$efi_part" /mnt/boot
-
-# Optionally mount a Windows partition
-read -p "Do you want to mount a Windows partition for dual-boot setup? (yes/no): " mount_windows
-if [[ "$mount_windows" == "yes" ]]; then
-    lsblk
-    read -p "Enter the partition to mount (e.g., /dev/sda3): " windows_part
-    mkdir -p /mnt/windows
-    mount "$windows_part" /mnt/windows
-fi
 
 # Base package installation
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo snapper"
@@ -91,6 +84,17 @@ pacstrap /mnt $base_packages $extra_packages
 
 # Generate fstab
 genfstab -U /mnt >> /mnt/etc/fstab
+
+# Copy network settings if they exist
+if [ -d /etc/NetworkManager/system-connections ]; then
+    echo "Copying network settings..."
+    cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/ || {
+        echo "Warning: Failed to copy network settings. Continuing without them."
+    }
+else
+    echo "No network settings found to copy. Skipping this step."
+fi
+
 
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
@@ -127,18 +131,29 @@ systemctl enable NetworkManager sshd
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
-
-# Install and set up Snapper
-snapper --config root create-config /
-snapper --config home create-config /home
-pacman -Syu snap-pac grub-btrfs --noconfirm
-
-# Install Yay (AUR Helper)
-git clone https://aur.archlinux.org/yay.git /home/$username/yay
-chown -R $username:$username /home/$username/yay
-cd /home/$username/yay
-sudo -u $username makepkg -si --noconfirm
 EOF
+
+# Install yay, snapper, snap-pac, and grub-btrfs
+arch-chroot /mnt /bin/bash <<EOF
+echo "Installing yay..."
+sudo pacman -S --needed base-devel git --noconfirm
+git clone https://aur.archlinux.org/yay.git /tmp/yay
+cd /tmp/yay
+makepkg -si --noconfirm
+
+echo "Installing snapper, snap-pac, and grub-btrfs..."
+sudo pacman -S snapper snap-pac grub-btrfs --noconfirm
+EOF
+
+# Mount Windows partition for GRUB detection (optional)
+read -p "Do you want to mount a Windows partition for GRUB detection? (yes/no): " mount_windows
+if [[ "$mount_windows" == "yes" ]]; then
+    lsblk
+    read -p "Enter the Windows partition (e.g., /dev/sda1): " windows_partition
+    mkdir -p /mnt/windows
+    mount "$windows_partition" /mnt/windows
+    echo "$windows_partition /mnt/windows auto defaults 0 0" >> /mnt/etc/fstab
+fi
 
 # Final message
 echo "Installation complete! Reboot into your new Arch Linux system."
