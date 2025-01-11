@@ -160,11 +160,15 @@ echo "$username:$user_password" | chpasswd
 sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
 systemctl enable NetworkManager sshd
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
 # Yay installation
 arch-chroot /mnt /bin/bash <<EOF
+# Install required dependencies for building AUR packages
+pacman -S --needed base-devel git fakeroot --noconfirm
+
 # Switch to the new user and build yay
 su - $username <<EOC
 git clone https://aur.archlinux.org/yay.git /tmp/yay
@@ -172,6 +176,7 @@ cd /tmp/yay
 makepkg -si --noconfirm
 EOC
 EOF
+
 
 # Final message
 echo "${bold}${green}Installation complete! Reboot into your new Arch Linux system.${normal}"
