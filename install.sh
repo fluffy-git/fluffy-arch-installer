@@ -3,84 +3,81 @@
 # Exit on errors
 set -e
 
-# Color formatting
-BOLD=$(tput bold)
-NORMAL=$(tput sgr0)
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-YELLOW=$(tput setaf 3)
-BLUE=$(tput setaf 4)
-CYAN=$(tput setaf 6)
-RESET=$(tput sgr0)
+# Colors and formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
 
-# Function for input validation
+# Functions for validation
 validate_input() {
     local input="$1"
-    if [[ -z "$input" ]]; then
-        echo "${RED}Error: Input cannot be empty.${RESET}"
-        return 1
-    fi
-    return 0
-}
-
-# Function for validated prompt
-prompt_input() {
-    local prompt_message="$1"
-    local input
-    while true; do
-        read -p "${BOLD}${prompt_message}${RESET} " input
-        if validate_input "$input"; then
-            echo "$input"
-            break
-        fi
+    while [[ -z "$input" ]]; do
+        echo "${red}Input cannot be empty. Please try again.${normal}"
+        read -p "$2" input
     done
+    echo "$input"
 }
-
-clear
 
 # Welcome message
-echo "${CYAN}Welcome to the customized Arch Linux installation script!${RESET}"
-echo "${BOLD}This script will guide you through a highly customizable Arch Linux installation.${RESET}"
+clear
+echo "${bold}${green}Welcome to the customized Arch Linux installation script!${normal}"
+echo "This script will guide you through a highly customizable Arch Linux installation."
 echo ""
+
+# Ensure the system is booted in UEFI mode
+if [[ ! -d /sys/firmware/efi/efivars ]]; then
+    echo "${red}Error: System is not booted in UEFI mode. Please reboot the system in UEFI mode.${normal}"
+    exit 1
+fi
 
 # Prompt user for timezone
 clear
-timezone=$(prompt_input "Enter your timezone (e.g., Europe/Berlin):")
+read -p "${bold}Enter your timezone (e.g., Europe/Berlin): ${normal}" timezone
+timezone=$(validate_input "$timezone" "Enter your timezone: ")
 
-# Prompt user for locale
+# Prompt user for locales
 clear
-echo "${BOLD}Enter the locales you want to enable.${RESET}"
-echo "${GREEN}Example: en_US de_DE${RESET}"
-echo "The script will automatically append UTF-8."
-locale_input=$(prompt_input "Enter locales (space-separated):")
-IFS=' ' read -r -a locale_array <<< "$locale_input"
+echo "${bold}Available locales:${normal}"
+grep -v '^#' /etc/locale.gen | less
+echo ""
+read -p "${bold}Enter the locales to enable (space-separated, e.g., en_US de_DE): ${normal}" locales
+locales=$(validate_input "$locales" "Enter the locales to enable: ")
 
 # Prompt user for keyboard layout
 clear
-keylayout=$(prompt_input "Enter your keyboard layout (e.g., us, de, fr):")
+read -p "${bold}Enter your keyboard layout (e.g., us, de, fr): ${normal}" keylayout
+keylayout=$(validate_input "$keylayout" "Enter your keyboard layout: ")
 loadkeys "$keylayout"
 
 # Prompt user for root password and user account
 clear
-root_password=$(prompt_input "Enter the root password (input hidden):" -s)
-username=$(prompt_input "Enter the username for the new user account:")
-user_password=$(prompt_input "Enter the password for $username (input hidden):" -s)
+read -s -p "${bold}Enter the root password: ${normal}" root_password
+echo ""
+read -p "${bold}Enter the username for the new user account: ${normal}" username
+username=$(validate_input "$username" "Enter the username for the new user account: ")
+read -s -p "${bold}Enter the password for the $username account: ${normal}" user_password
+echo ""
 
 # Disk setup
 clear
 lsblk
-echo "${BOLD}Available disks:${RESET}"
-fdisk -l
-disk=$(prompt_input "Enter the disk to partition (e.g., /dev/sda):")
+echo ""
+read -p "${bold}Enter the disk to partition (e.g., /dev/sda): ${normal}" disk
+disk=$(validate_input "$disk" "Enter the disk to partition: ")
 cfdisk "$disk"
 
 # Prompt user for partitions
-efi_part=$(prompt_input "Enter the partition number for EFI system partition (e.g., 1):")
-btrfs_part=$(prompt_input "Enter the partition number for BTRFS partition (e.g., 2):")
-echo "Did you create a swap partition? (yes/no):"
-read created_swap
+clear
+read -p "${bold}Enter the partition number for EFI system partition (e.g., 1): ${normal}" efi_part
+efi_part=$(validate_input "$efi_part" "Enter the partition number for EFI system partition: ")
+read -p "${bold}Enter the partition number for BTRFS partition (e.g., 2): ${normal}" btrfs_part
+btrfs_part=$(validate_input "$btrfs_part" "Enter the partition number for BTRFS partition: ")
+read -p "${bold}Did you create a swap partition? (yes/no): ${normal}" created_swap
 if [[ "$created_swap" == "yes" ]]; then
-    swap_part=$(prompt_input "Enter the partition number for swap (e.g., 3):")
+    read -p "${bold}Enter the partition number for swap (e.g., 3): ${normal}" swap_part
+    swap_part=$(validate_input "$swap_part" "Enter the partition number for swap: ")
 fi
 
 # Construct partition paths
@@ -92,7 +89,7 @@ fi
 
 # Format partitions and set labels
 clear
-echo "${YELLOW}Formatting partitions...${RESET}"
+echo "${bold}${yellow}Formatting partitions...${normal}"
 mkfs.fat -F32 -n "EFI" "$efi_part"
 mkfs.btrfs -L "ROOT" "$btrfs_part"
 if [[ "$created_swap" == "yes" ]]; then
@@ -101,7 +98,8 @@ if [[ "$created_swap" == "yes" ]]; then
 fi
 
 # Mount BTRFS and create essential subvolumes
-echo "${YELLOW}Mounting BTRFS partition and creating essential subvolumes...${RESET}"
+clear
+echo "${bold}${yellow}Mounting BTRFS partition and creating subvolumes...${normal}"
 mount "$btrfs_part" /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
@@ -116,65 +114,50 @@ mount "$efi_part" /mnt/boot
 # Base package installation
 clear
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo snapper"
-echo "${BOLD}Base packages:${RESET} $base_packages"
-read -p "${BOLD}Enter any additional packages to install (space-separated):${RESET} " extra_packages
+echo "${bold}Base packages: ${base_packages}${normal}"
+read -p "${bold}Enter any additional packages to install (space-separated): ${normal}" extra_packages
 pacstrap /mnt $base_packages $extra_packages
 
 # Generate fstab
+clear
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # Copy network settings
-if [ -d /etc/NetworkManager/system-connections ]; then
-    echo "${YELLOW}Copying network settings...${RESET}"
-    cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/ || {
-        echo "${RED}Warning: Failed to copy network settings. Continuing without them.${RESET}"
-    }
+if [[ -d /etc/NetworkManager/system-connections ]]; then
+    cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
 else
-    echo "${YELLOW}No network settings found to copy. Skipping this step.${RESET}"
+    echo "${red}Network settings not found. Skipping network configuration copy.${normal}"
 fi
 
-# Enter chroot and configure the system
+# Chroot and configuration
 arch-chroot /mnt /bin/bash <<EOF
-
-# Set timezone
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
-
-# Configure locales
-for locale in ${locale_array[@]}; do
-    echo "${locale}.UTF-8 UTF-8" >> /etc/locale.gen
+for locale in $locales; do
+    echo "\${locale} UTF-8" >> /etc/locale.gen
 done
 locale-gen
-echo "LANG=${locale_array[0]}.UTF-8" > /etc/locale.conf
-
-# Set hostname
-hostname=$(prompt_input "Enter the hostname for this system:")
+echo "LANG=$(echo $locales | cut -d' ' -f1).UTF-8" > /etc/locale.conf
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $hostname.localdomain $hostname" >> /etc/hosts
-
-# Set root password
 echo "root:$root_password" | chpasswd
-
-# Create user and set password
 useradd -m -G wheel -s /usr/bin/zsh "$username"
 echo "$username:$user_password" | chpasswd
-
-# Enable sudo for the wheel group
 sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
-
-# Enable services
 systemctl enable NetworkManager sshd
-
-# Configure GRUB
-sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
+EOF
 
-# Install yay and additional tools
-pacman -S --noconfirm yay snap-pac grub-btrfs
+# Yay installation
+arch-chroot /mnt /bin/bash <<EOF
+pacman -S --needed base-devel git --noconfirm
+git clone https://aur.archlinux.org/yay.git /tmp/yay
+cd /tmp/yay
+makepkg -si --noconfirm
 EOF
 
 # Final message
-echo "${GREEN}Installation complete! Reboot into your new Arch Linux system.${RESET}"
+echo "${bold}${green}Installation complete! Reboot into your new Arch Linux system.${normal}"
