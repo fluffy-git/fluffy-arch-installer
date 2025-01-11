@@ -93,10 +93,10 @@ fi
 # Format partitions and set labels
 clear
 echo "${bold}${yellow}Formatting partitions...${normal}"
-mkfs.fat -F32 -n "EFI" "$efi_part"
-mkfs.btrfs -L -F "ROOT" "$btrfs_part"
+mkfs.fat -F32 -n "efi" "$efi_part"
+mkfs.btrfs -L -F "$hostname" "$btrfs_part"
 if [[ "$created_swap" == "yes" ]]; then
-    mkswap -L "SWAP" "$swap_part"
+    mkswap -L "swap" "$swap_part"
     swapon "$swap_part"
 fi
 
