@@ -69,7 +69,7 @@ lsblk -e 7,11
 echo ""
 read -p "${bold}Enter the disk to partition (e.g., sda): ${normal}" disk
 disk=$(validate_input "$disk" "Enter the disk to partition: ")
-disk="/dev/" + $disk
+disk="/dev/$disk"
 cfdisk "$disk"
 
 # Prompt user for partitions
@@ -177,6 +177,8 @@ cd /tmp/yay
 makepkg -si --noconfirm
 EOC
 EOF
+
+
 
 
 # Final message
