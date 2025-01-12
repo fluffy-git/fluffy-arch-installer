@@ -160,9 +160,26 @@ useradd -m -G wheel -s /usr/bin/zsh "$username"
 echo "$username:$user_password" | chpasswd
 sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
 systemctl enable NetworkManager sshd
+
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
+
+echo "KEYMAP=$keylayout" >> /etc/vconsole.conf
+EOF
+
+#Setup System Language
+read -p "${bold}What locale do you want the system to use for Formats?: ${normal}" sys_locale
+sys_locale=$(validate_input "$sys_locale" "What locale do you want the system to use for Formats?: ")
+sys_locale_lang=$sys_locale
+read -p "${bold}Do you want to use a diffrent Language to the Format Language: ${normal}" diff_lang_locale
+if [[ "$diff_lang_locale" == "yes" ]]; then
+    read -p "${bold}Which Locale do you want to use for the Language?: ${normal}" sys_locale_lang
+    sys_locale_lang=$(validate_input "$sys_locale" "What locale do you want the system to use?: ")
+fi
+arch-chroot /mnt /bin/bash <<EOF
+echo "LANG=$sys_locale.UTF-8" >> /etc/locale.conf
+echo "LC_MESSAGES=$sys_locale_lang.UTF-8" >> /etc/locale.conf
 EOF
 
 # Yay installation
@@ -177,6 +194,54 @@ cd /tmp/yay
 makepkg -si --noconfirm
 EOC
 EOF
+
+
+
+
+read -p "Do you want to enable a firewall (ufw)? (yes/no): " enable_firewall
+if [[ "$enable_firewall" == "yes" ]]; then
+    arch-chroot /mnt /bin/bash -c "pacman -Syu ufw --noconfirm && systemctl enable ufw && systemctl start ufw"
+fi
+arch-chroot /mnt /bin/bash <<EOF
+if lspci | grep -i nvidia; then
+    echo "NVIDIA GPU detected. Installing drivers..."
+    pacman -Syu nvidia nvidia-settings nvidia-utils --noconfirm
+elif lspci | grep -i amd; then
+    echo "AMD GPU detected. Installing drivers..."
+    pacman -Syu xf86-video-amdgpu --noconfirm
+fi
+EOF
+
+# Install Zsh if it's not already installed
+arch-chroot /mnt /bin/bash -c "pacman -Syu zsh --noconfirm"
+# Set Zsh as the default shell system-wide
+arch-chroot /mnt /bin/bash -c "chsh -s /bin/zsh root"
+for user in $(ls /mnt/home); do
+    arch-chroot /mnt /bin/bash -c "chsh -s /bin/zsh $user"
+done
+
+# Configure .zshrc for all users based on the provided configuration
+arch-chroot /mnt /bin/bash <<EOF
+echo "# Lines configured by zsh-newuser-install" > /etc/skel/.zshrc
+echo "HISTFILE=~/.histfile" >> /etc/skel/.zshrc
+echo "HISTSIZE=1000" >> /etc/skel/.zshrc
+echo "SAVEHIST=1000" >> /etc/skel/.zshrc
+echo "setopt autocd" >> /etc/skel/.zshrc
+echo "bindkey -e" >> /etc/skel/.zshrc
+echo "# End of lines configured by zsh-newuser-install" >> /etc/skel/.zshrc
+echo "# The following lines were added by compinstall" >> /etc/skel/.zshrc
+echo "zstyle :compinstall filename '/home/$username/.zshrc'" >> /etc/skel/.zshrc
+echo "autoload -Uz compinit" >> /etc/skel/.zshrc
+echo "compinit" >> /etc/skel/.zshrc
+echo "# End of lines added by compinstall" >> /etc/skel/.zshrc
+EOF
+# Ensure new users have the default .zshrc (using /etc/skel)
+arch-chroot /mnt /bin/bash -c "chmod 755 /etc/skel/.zshrc"
+# Optionally install Oh My Zsh for all users
+read -p "Do you want to install Oh My Zsh for all users? (yes/no): " install_omz
+if [[ "$install_omz" == "yes" ]]; then
+    arch-chroot /mnt /bin/bash -c "sh -c \"\$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" --unattended"
+fi
 
 
 
