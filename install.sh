@@ -41,15 +41,19 @@ read -p "${bold}Enter your timezone (e.g., Europe/Berlin): ${normal}" timezone
 timezone=$(validate_input "$timezone" "Enter your timezone: ")
 
 # Prompt user for locales
-read -p "${bold}Enter the locales to enable (space-separated, e.g., en_US.UTF-8 de_DE.UTF-8): ${normal}" locales
+read -p "${bold}Enter the locales to enable (space-separated, e.g., en_US de_DE): ${normal}" locales
 locales=$(validate_input "$locales" "Enter the locales to enable: ")
+locales=$(echo "$locales" | sed 's/\b\([^ ]*\)\b/\1.UTF-8/g')
 
 # Prompt user for language and format locale
-read -p "${bold}Enter your language locale (e.g., en_US.UTF-8): ${normal}" language_locale
-language_locale=$(validate_input "$language_locale" "Enter your language locale (e.g., en_US.UTF-8): ")
-read -p "${bold}Enter your format locale (e.g., de_DE.UTF-8) or press Enter to use the language locale: ${normal}" format_locale
+read -p "${bold}Enter your language locale (e.g., en_US): ${normal}" language_locale
+language_locale=$(validate_input "$language_locale" "Enter your language locale (e.g., en_US): ")
+language_locale="${language_locale}.UTF-8"
+read -p "${bold}Enter your format locale (e.g., de_DE) or press Enter to use the language locale: ${normal}" format_locale
 if [[ -z "$format_locale" ]]; then
     format_locale="$language_locale"
+else
+    format_locale="${format_locale}.UTF-8"
 fi
 
 # Prompt user for keyboard layout
