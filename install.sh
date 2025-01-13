@@ -119,14 +119,14 @@ btrfs subvolume create /mnt/@snapshots
 umount /mnt
 
 # Remount subvolumes
-mount -o subvol=@,compress=zstd "$btrfs_part" /mnt
+mount -o subvol=@ "$btrfs_part" /mnt
 mkdir -p /mnt/{boot,home,.snapshots}
-mount -o subvol=@home,compress=zstd "$btrfs_part" /mnt/home
+mount -o subvol=@home"$btrfs_part" /mnt/home
 mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
 mount "$efi_part" /mnt/boot
 
 # Base package installation
-base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo snapper grub-btrfs snap-pac reflector"
+base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
 echo "${bold}Base packages: ${base_packages}${normal}"
 read -p "${bold}Enter any additional packages to install (space-separated): ${normal}" extra_packages
 pacstrap /mnt $base_packages $extra_packages
@@ -135,69 +135,75 @@ pacstrap /mnt $base_packages $extra_packages
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # Copy network settings
-if [[ -d /etc/NetworkManager/system-connections ]]; then
-    cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
-else
-    echo "${red}Network settings not found. Skipping network configuration copy.${normal}"
-fi
+# if [[ -d /etc/NetworkManager/system-connections ]]; then
+#     cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
+# else
+#     echo "${red}Network settings not found. Skipping network configuration copy.${normal}"
+# fi
 
 # Chroot and configuration
 arch-chroot /mnt /bin/bash <<EOF
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
+
 hwclock --systohc
+
 for locale in $locales; do
     echo "\${locale} UTF-8" >> /etc/locale.gen
 done
 locale-gen
+
 echo "LANG=$language_locale" > /etc/locale.conf
 echo "LC_TIME=$format_locale" >> /etc/locale.conf
+
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $hostname.localdomain $hostname" >> /etc/hosts
+
 echo "root:$root_password" | chpasswd
 useradd -m -G wheel -s /usr/bin/zsh "$username"
 echo "$username:$user_password" | chpasswd
+
 sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
+
 systemctl enable NetworkManager sshd
 
 # GRUB installation and configuration
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
-
-# Snapper configuration
-umount /.snapshots
-snapper -c root create-config /
-snapper -c home create-config /home
-mkdir -p /.snapshots
-mount -o subvol=@snapshots "$btrfs_part" /.snapshots
-chmod 750 /.snapshots
-
-# Install and configure GRUB-btrfs and Snap-pac
-systemctl enable grub-btrfs.path
-systemctl enable snap-pac.timer
 EOF
 
 # Install yay and AUR helper
 arch-chroot /mnt /bin/bash <<EOF
-pacman -S --needed base-devel git fakeroot --noconfirm
+sudo pacman -S --needed  --noconfirm git base-devel
 su - $username <<EOC
-git clone https://aur.archlinux.org/yay.git /tmp/yay
-cd /tmp/yay
+git clone https://aur.archlinux.org/yay-bin.git
+cd yay-bin
 makepkg -si --noconfirm
 EOC
 EOF
 
-# Install Oh My Zsh and Zsh configuration
+
+
+
+# Install Oh My Zsh
 read -p "Do you want to install Oh My Zsh for all users? (yes/no): " install_omz
 if [[ "$install_omz" == "yes" ]]; then
     arch-chroot /mnt /bin/bash <<EOF
 su - $username <<EOC
-sh -c "\$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
+yay -S --noconfirm zsh-theme-powerlevel10k-git
+echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
 EOC
 EOF
 fi
+
+# Configure zsh
+arch-chroot /mnt /bin/bash <<EOF
+su - $username <<EOC
+echo "" >> ~/.zshrc
+EOC
+EOF
 
 # Final message
 echo "${bold}${green}Installation complete! Reboot into your new Arch Linux system.${normal}"
