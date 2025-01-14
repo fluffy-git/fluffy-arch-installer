@@ -113,19 +113,15 @@ fi
 
 # Mount BTRFS and create essential subvolumes
 mount "$btrfs_part" /mnt
-cd /mnt
-btrfs subvolume create _active
-btrfs subvolume create _active/rootvol
-btrfs subvolume create _active/homevol
-btrfs subvolume create _snapshots
+btrfs subvolume create /mnt/_active
+btrfs subvolume create /mnt/_active/rootvol
+btrfs subvolume create /mnt/_active/homevol
+btrfs subvolume create /mnt/_snapshots
 
 # Remount subvolumes
-cd ..
 umount /mnt
 mount -o subvol=_active/rootvol "$btrfs_part" /mnt
-mkdir /mnt/{home,boot}
-mkdir /mnt/boot/efi
-mkdir /mnt/mnt/defvol
+mkdir -p /mnt/{home,boot/efi,mnt/defvol}
 mount "$efi_part" /mnt/boot/efi
 mount -o subvol=_active/homevol "$btrfs_part" /mnt/home
 mount -o subvol=/ "$btrfs_part" /mnt/mnt/defvol
@@ -139,21 +135,13 @@ pacstrap /mnt $base_packages $extra_packages
 # Generate fstab
 genfstab -U /mnt >> /mnt/etc/fstab
 
-# Copy network settings
-# if [[ -d /etc/NetworkManager/system-connections ]]; then
-#     cp -r /etc/NetworkManager/system-connections /mnt/etc/NetworkManager/
-# else
-#     echo "${red}Network settings not found. Skipping network configuration copy.${normal}"
-# fi
-
 # Chroot and configuration
 arch-chroot /mnt /bin/bash <<EOF
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
-
 hwclock --systohc
 
 for locale in $locales; do
-    echo "\${locale} UTF-8" >> /etc/locale.gen
+    grep -q "^$locale UTF-8" /etc/locale.gen || echo "$locale UTF-8" >> /etc/locale.gen
 done
 locale-gen
 
@@ -173,42 +161,18 @@ sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
 
 systemctl enable NetworkManager sshd
 
-# GRUB installation and configuration
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
-EOF
 
-# Install yay and AUR helper
-arch-chroot /mnt /bin/bash <<EOF
-sudo pacman -S --needed  --noconfirm git base-devel
+sudo pacman -S --needed --noconfirm git base-devel
 su - $username <<EOC
 git clone https://aur.archlinux.org/yay-bin.git
 cd yay-bin
 makepkg -si --noconfirm
-EOC
-EOF
-
-
-
-
-# Install Oh My Zsh
-read -p "Do you want to install Oh My Zsh for all users? (yes/no): " install_omz
-if [[ "$install_omz" == "yes" ]]; then
-    arch-chroot /mnt /bin/bash <<EOF
-su - $username <<EOC
 yay -S --noconfirm zsh-theme-powerlevel10k-git
-echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
-EOC
-EOF
-fi
-
-# Configure zsh
-arch-chroot /mnt /bin/bash <<EOF
-su - $username <<EOC
-echo "" >> ~/.zshrc
+echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >> ~/.zshrc
 EOC
 EOF
 
-# Final message
 echo "${bold}${green}Installation complete! Reboot into your new Arch Linux system.${normal}"
