@@ -175,4 +175,11 @@ echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >> ~/.z
 EOC
 EOF
 
-echo "${bold}${green}Installation complete! Reboot into your new Arch Linux system.${normal}"
+read -p "${bold}${green}Installation complete! Do you want to reboot? (yes/no): ${normal}" reboot
+if [[ "$reboot" == "yes" ]]; then
+    echo "${bold}Goodbye, rebooting in 5 seconds!"
+    sleep 5
+    reboot
+else
+    echo "${bold}Goodbye!"
+fi
