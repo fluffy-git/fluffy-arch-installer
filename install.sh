@@ -113,17 +113,22 @@ fi
 
 # Mount BTRFS and create essential subvolumes
 mount "$btrfs_part" /mnt
-btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@snapshots
-umount /mnt
+cd /mnt
+btrfs subvolume create _active
+btrfs subvolume create _active/rootvol
+btrfs subvolume create _active/homevol
+btrfs subvolume create _snapshots
 
 # Remount subvolumes
-mount -o subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot,home,.snapshots}
-mount -o subvol=@home"$btrfs_part" /mnt/home
-mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
-mount "$efi_part" /mnt/boot
+cd ..
+umount /mnt
+mount -o subvol=_active/rootvol "$btrfs_part" /mnt
+mkdir /mnt/{home,boot}
+mkdir /mnt/boot/efi
+mkdir /mnt/mnt/defvol
+mount "$efi_part" /mnt/boot/efi
+mount -o subvol=_active/homevol "$btrfs_part" /mnt/home
+mount -o subvol=/ "$btrfs_part" /mnt/mnt/defvol
 
 # Base package installation
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
