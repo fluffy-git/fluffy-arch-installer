@@ -178,41 +178,41 @@ EOF
 read -p "${bold}${green}Do you want to configure zsh now? This is needed to install Oh my zsh and Powerlevel10k and also skips configuring zsh on first startup (yes/no): ${normal}" zshconfg
 if [[ "$zshconfg" == "yes" ]]; then
 
-    arch-chroot /mnt /bin/bash <<EOF
-    su - $username <<EOC
+arch-chroot /mnt /bin/bash <<EOF
+su - $username <<EOC
 
-    autoload -U zsh-newuser-install
-    zsh-newuser-install -f
+autoload -U zsh-newuser-install
+zsh-newuser-install -f
 
-    EOC
-    EOF
+EOC
+EOF
 
-    read -p "${bold}${green}Do you want to install Oh my zsh? (yes/no): ${normal}" ohmyzshinstall
-    if [[ "$ohmyzshinstall" == "yes" ]]; then
+read -p "${bold}${green}Do you want to install Oh my zsh? (yes/no): ${normal}" ohmyzshinstall
+if [[ "$ohmyzshinstall" == "yes" ]]; then
 
-        arch-chroot /mnt /bin/bash <<EOF
-        su - $username <<EOC
+arch-chroot /mnt /bin/bash <<EOF
+su - $username <<EOC
 
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
-        EOC
-        EOF
+EOC
+EOF
+
+fi
+
+read -p "${bold}${green}Do you want to install Powerlevel10K? (yes/no): ${normal}" pl10k
+if [[ "$pl10k" == "yes" ]]; then
+
+arch-chroot /mnt /bin/bash <<EOF
+su - $username <<EOC
+
+yay -S --noconfirm zsh-theme-powerlevel10k-git
+echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
+
+EOC
+EOF
         
-    fi
-
-    read -p "${bold}${green}Do you want to install Powerlevel10K? (yes/no): ${normal}" pl10k
-    if [[ "$pl10k" == "yes" ]]; then
-
-        arch-chroot /mnt /bin/bash <<EOF
-        su - $username <<EOC
-
-        yay -S --noconfirm zsh-theme-powerlevel10k-git
-        echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
-
-        EOC
-        EOF
-        
-    fi
+fi
 fi
 
 
