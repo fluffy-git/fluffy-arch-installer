@@ -3,4 +3,5 @@ This script is designed to install a btfs arch install with grub as bootloader a
 
 feel free to modify, redistribute and reuse. i am sorry for messy code in advance 💀
 
+To execute the script use:
 `bash <(curl -sL install.fluffcraft.dev)`
