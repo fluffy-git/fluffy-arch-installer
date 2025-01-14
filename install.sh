@@ -157,7 +157,7 @@ echo "root:$root_password" | chpasswd
 useradd -m -G wheel -s /usr/bin/zsh "$username"
 echo "$username:$user_password" | chpasswd
 
-sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
+echo "%wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" >> /etc/sudoers
 
 systemctl enable NetworkManager sshd
 
