@@ -147,6 +147,7 @@ locale-gen
 
 echo "LANG=$language_locale" > /etc/locale.conf
 echo "LC_TIME=$format_locale" >> /etc/locale.conf
+echo "KEYMAP=$$keylayout" >> /etc/vconsole.conf
 
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
@@ -157,7 +158,7 @@ echo "root:$root_password" | chpasswd
 useradd -m -G wheel -s /usr/bin/zsh "$username"
 echo "$username:$user_password" | chpasswd
 
-echo "%wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" >> /etc/sudoers
+echo "%wheel	ALL=(ALL) ALL" >> /etc/sudoers
 
 systemctl enable NetworkManager sshd
 
@@ -170,10 +171,13 @@ su - $username <<EOC
 git clone https://aur.archlinux.org/yay-bin.git
 cd yay-bin
 makepkg -si --noconfirm
-yay -S --noconfirm zsh-theme-powerlevel10k-git
-echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >> ~/.zshrc
+
+#yay -S --noconfirm zsh-theme-powerlevel10k-git
+#echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
+
 EOC
 EOF
+
 
 read -p "${bold}${green}Installation complete! Do you want to reboot? (yes/no): ${normal}" reboot
 if [[ "$reboot" == "yes" ]]; then
