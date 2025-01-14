@@ -121,13 +121,13 @@ btrfs subvolume create /mnt/_snapshots
 # Remount subvolumes
 umount /mnt
 mount -o subvol=_active/rootvol "$btrfs_part" /mnt
-mkdir -p /mnt/{home,boot/efi,mnt/defvol}
-mount "$efi_part" /mnt/boot/efi
+mkdir -p /mnt/{home,efi,mnt/defvol}
+mount "$efi_part" /mnt/efi
 mount -o subvol=_active/homevol "$btrfs_part" /mnt/home
 mount -o subvol=/ "$btrfs_part" /mnt/mnt/defvol
 
 # Base package installation
-base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
+base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub grub-btrfs efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
 echo "${bold}Base packages: ${base_packages}${normal}"
 read -p "${bold}Enter any additional packages to install (space-separated): ${normal}" extra_packages
 pacstrap /mnt $base_packages $extra_packages
@@ -161,7 +161,7 @@ echo "%wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" >> /etc/sudoers
 
 systemctl enable NetworkManager sshd
 
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB
 echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 
