@@ -147,7 +147,7 @@ locale-gen
 
 echo "LANG=$language_locale" > /etc/locale.conf
 echo "LC_TIME=$format_locale" >> /etc/locale.conf
-echo "KEYMAP=$$keylayout" >> /etc/vconsole.conf
+echo "KEYMAP=$keylayout" >> /etc/vconsole.conf
 
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
@@ -177,7 +177,6 @@ makepkg -si --noconfirm
 
 EOC
 EOF
-
 
 read -p "${bold}${green}Installation complete! Do you want to reboot? (yes/no): ${normal}" reboot
 if [[ "$reboot" == "yes" ]]; then
