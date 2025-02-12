@@ -42,7 +42,7 @@ timezone=$(validate_input "$timezone" "Enter your timezone: ")
 
 # Prompt user for locales
 read -p "${bold}Enter the locales to enable (space-separated, e.g., en_US de_DE): ${normal}" locales
-locales=$(validate_input "$locales" "Enter the locales to enable: ")
+locales=$(validate_input "$locales" "Enter your locales to enable: ")
 locales=$(echo "$locales" | sed 's/\b\([^ ]*\)\b/\1.UTF-8/g')
 
 # Prompt user for language and format locale
@@ -74,6 +74,12 @@ lsblk -e 7,11
 echo ""
 read -p "${bold}Enter the disk to partition (e.g., sda): ${normal}" disk
 disk=$(validate_input "$disk" "Enter the disk to partition: ")
+
+# Handle NVMe disks
+if [[ "$disk" =~ ^nvme ]]; then
+    disk="${disk}p"
+fi
+
 disk="/dev/$disk"
 cfdisk "$disk"
 
@@ -111,20 +117,21 @@ if [[ "$created_swap" == "yes" ]]; then
     swapon "$swap_part"
 fi
 
-# Mount BTRFS and create essential subvolumes
+# Mount BTRFS and create essential subvolumes for Snapper
 mount "$btrfs_part" /mnt
-btrfs subvolume create /mnt/_active
-btrfs subvolume create /mnt/_active/rootvol
-btrfs subvolume create /mnt/_active/homevol
-btrfs subvolume create /mnt/_snapshots
+
+# Recommended BTRFS layout for Snapper
+btrfs subvolume create /mnt/@
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@snapshots
 
 # Remount subvolumes
 umount /mnt
-mount -o subvol=_active/rootvol "$btrfs_part" /mnt
-mkdir -p /mnt/{home,efi,mnt/defvol}
+mount -o subvol=@ "$btrfs_part" /mnt
+mkdir -p /mnt/{home,efi,snapshots}
 mount "$efi_part" /mnt/efi
-mount -o subvol=_active/homevol "$btrfs_part" /mnt/home
-mount -o subvol=/ "$btrfs_part" /mnt/mnt/defvol
+mount -o subvol=@home "$btrfs_part" /mnt/home
+mount -o subvol=@snapshots "$btrfs_part" /mnt/snapshots
 
 # Base package installation
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub grub-btrfs efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
@@ -140,9 +147,11 @@ arch-chroot /mnt /bin/bash <<EOF
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
 
+# Ensure locales are enabled in /etc/locale.gen
 for locale in $locales; do
-    grep -q "^$locale UTF-8" /etc/locale.gen || echo "$locale UTF-8" >> /etc/locale.gen
+    grep -q "^$locale.UTF-8" /etc/locale.gen || sed -i "/^#.*$locale.UTF-8/s/^#//" /etc/locale.gen
 done
+
 locale-gen
 
 echo "LANG=$language_locale" > /etc/locale.conf
