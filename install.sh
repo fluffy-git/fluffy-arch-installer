@@ -120,18 +120,20 @@ fi
 # Mount BTRFS and create essential subvolumes for Snapper
 mount "$btrfs_part" /mnt
 
-# Recommended BTRFS layout for Snapper
+# Recommended BTRFS layout for Snapper, including @var_log
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@snapshots
+btrfs subvolume create /mnt/@var_log
 
 # Remount subvolumes
 umount /mnt
 mount -o subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{home,efi,snapshots}
+mkdir -p /mnt/{home,efi,snapshots,var_log}
 mount "$efi_part" /mnt/efi
 mount -o subvol=@home "$btrfs_part" /mnt/home
-mount -o subvol=@snapshots "$btrfs_part" /mnt/snapshots
+mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
+mount -o subvol=@var_log "$btrfs_part" /mnt/var/log
 
 # Base package installation
 base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub grub-btrfs efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
@@ -180,6 +182,9 @@ su - $username <<EOC
 git clone https://aur.archlinux.org/yay-bin.git
 cd yay-bin
 makepkg -si --noconfirm
+
+cd ..
+rm -rf yay-bin
 
 #yay -S --noconfirm zsh-theme-powerlevel10k-git
 #echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
