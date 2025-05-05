@@ -131,7 +131,7 @@ umount /mnt
 
 # Remount with subvolumes
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots}
+mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots,mnt}
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@cache "$btrfs_part" /mnt/var/cache
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@log "$btrfs_part" /mnt/var/log
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$btrfs_part" /mnt/tmp
