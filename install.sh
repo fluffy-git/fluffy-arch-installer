@@ -131,11 +131,12 @@ umount /mnt
 
 # Remount with subvolumes
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots} /mnt/home/.snapshots
+mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots}
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@cache "$btrfs_part" /mnt/var/cache
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@log "$btrfs_part" /mnt/var/log
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$btrfs_part" /mnt/tmp
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@home "$btrfs_part" /mnt/home
+mkdir -p /mnt/home/.snapshots
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@home_snapshots "$btrfs_part" /mnt/home/.snapshots
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@snapshots "$btrfs_part" /mnt/.snapshots
 mount "$efi_part" /mnt/boot/efi
