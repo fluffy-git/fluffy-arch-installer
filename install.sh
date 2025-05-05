@@ -75,15 +75,13 @@ echo ""
 read -p "${bold}Enter the disk to partition (e.g., sda): ${normal}" disk
 disk=$(validate_input "$disk" "Enter the disk to partition: ")
 
+disk="/dev/$disk"
+cfdisk "$disk"
+
 # Handle NVMe disks
 if [[ "$disk" =~ ^nvme ]]; then
     disk="${disk}p"
 fi
-
-disk="/dev/$disk"
-cfdisk "$disk"
-
-disk="${disk}p"
 
 # Prompt user for partitions
 read -p "${bold}Enter the partition number for EFI system partition (e.g., 1): ${normal}" efi_part
