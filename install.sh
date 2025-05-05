@@ -83,6 +83,8 @@ fi
 disk="/dev/$disk"
 cfdisk "$disk"
 
+disk="${disk}p"
+
 # Prompt user for partitions
 read -p "${bold}Enter the partition number for EFI system partition (e.g., 1): ${normal}" efi_part
 efi_part=$(validate_input "$efi_part" "Enter the partition number for EFI system partition: ")
