@@ -117,26 +117,26 @@ if [[ "$created_swap" == "yes" ]]; then
     swapon "$swap_part"
 fi
 
-# Mount BTRFS and create essential subvolumes for Snapper
+# Mount and create Btrfs subvolumes
 mount "$btrfs_part" /mnt
-
-# Recommended BTRFS layout for Snapper, including @var_log
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@snapshots
+btrfs subvolume create /mnt/@home_snapshots
 btrfs subvolume create /mnt/@var_log
-
-# Remount subvolumes
 umount /mnt
-mount -o subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{home,efi,snapshots,var_log}
+
+# Mount subvolumes
+mount -o noatime,compress=zstd,subvol=@ "$btrfs_part" /mnt
+mkdir -p /mnt/{efi,home,.snapshots,home/.snapshots,var/log}
 mount "$efi_part" /mnt/efi
-mount -o subvol=@home "$btrfs_part" /mnt/home
-mount -o subvol=@snapshots "$btrfs_part" /mnt/.snapshots
-mount -o subvol=@var_log "$btrfs_part" /mnt/var/log
+mount -o noatime,compress=zstd,subvol=@home "$btrfs_part" /mnt/home
+mount -o noatime,compress=zstd,subvol=@snapshots "$btrfs_part" /mnt/.snapshots
+mount -o noatime,compress=zstd,subvol=@home_snapshots "$btrfs_part" /mnt/home/.snapshots
+mount -o noatime,compress=zstd,subvol=@var_log "$btrfs_part" /mnt/var/log
 
 # Base package installation
-base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub grub-btrfs efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop"
+base_packages="base linux-zen linux-zen-headers linux-firmware btrfs-progs grub grub-btrfs efibootmgr os-prober networkmanager nano git neofetch zsh zsh-completions zsh-autosuggestions openssh man sudo htop btop snapper grub-btrfs snapper-support snap-pac"
 echo "${bold}Base packages: ${base_packages}${normal}"
 read -p "${bold}Enter any additional packages to install (space-separated): ${normal}" extra_packages
 pacstrap /mnt $base_packages $extra_packages
@@ -158,7 +158,7 @@ locale-gen
 
 echo "LANG=$language_locale" > /etc/locale.conf
 echo "LC_TIME=$format_locale" >> /etc/locale.conf
-echo "KEYMAP=$keylayout" >> /etc/vconsole.conf
+echo "KEYMAP=$keylayout" > /etc/vconsole.conf
 
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1   localhost" >> /etc/hosts
@@ -177,18 +177,30 @@ grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB
 echo "GRUB_DISABLE_OS_PROBER=false" >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 
+# Snapper configuration
+snapper -c root create-config /
+mkdir -p /.snapshots
+mount -o subvol=@snapshots "$btrfs_part" /.snapshots
+chmod 750 /.snapshots
+chown :wheel /.snapshots
+
+snapper -c home create-config /home
+mkdir -p /home/.snapshots
+mount -o subvol=@home_snapshots "$btrfs_part" /home/.snapshots
+chmod 750 /home/.snapshots
+chown "$username:users" /home/.snapshots
+
+systemctl enable snapper-timeline.timer
+systemctl enable snapper-cleanup.timer
+systemctl enable grub-btrfs.path
+
 sudo pacman -S --needed --noconfirm git base-devel
 su - $username <<EOC
-git clone https://aur.archlinux.org/yay-bin.git
-cd yay-bin
-makepkg -si --noconfirm
-
-cd ..
-rm -rf yay-bin
-
-#yay -S --noconfirm zsh-theme-powerlevel10k-git
-#echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >>~/.zshrc
-
+    git clone https://aur.archlinux.org/yay-bin.git
+    cd yay-bin
+    makepkg -si --noconfirm
+    cd ..
+    rm -rf yay-bin
 EOC
 EOF
 
