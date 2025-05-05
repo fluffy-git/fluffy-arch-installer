@@ -131,7 +131,7 @@ umount /mnt
 
 # Remount with subvolumes
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@ "$btrfs_part" /mnt
-mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots,mnt}
+mkdir -p /mnt/{boot/efi,var/cache,var/log,tmp,.snapshots,mnt, home}
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@cache "$btrfs_part" /mnt/var/cache
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@log "$btrfs_part" /mnt/var/log
 mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$btrfs_part" /mnt/tmp
@@ -155,11 +155,21 @@ arch-chroot /mnt /bin/bash <<EOF
 ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
 
-# Enable locales
 for locale in $locales; do
-    grep -q "^$locale" /etc/locale.gen || sed -i "/^#.*$locale/s/^#//" /etc/locale.gen
+    full_locale="${locale}.UTF-8 UTF-8"
+    # Check if the exact line is uncommented
+    if ! grep -q "^$full_locale" /etc/locale.gen; then
+        if grep -q "^# *$full_locale" /etc/locale.gen; then
+            # Uncomment it
+            sed -i "s/^# *\($full_locale\)/\1/" /etc/locale.gen
+        else
+            # Add it
+            echo "$full_locale" >> /etc/locale.gen
+        fi
+    fi
 done
 locale-gen
+
 
 echo "LANG=$language_locale" > /etc/locale.conf
 echo "LC_TIME=$format_locale" >> /etc/locale.conf
