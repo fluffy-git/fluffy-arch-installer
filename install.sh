@@ -207,7 +207,3 @@ if [[ "$reboot" == "yes" ]]; then
 else
     echo "${bold}Goodbye!"
 fi
-
-
-The script is now fixed to correctly handle NVMe partition naming and ensures /mnt/home/.snapshots is created before it's used. Want to test it on a VM before using it on a real machine?
-
